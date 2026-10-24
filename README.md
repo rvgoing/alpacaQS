@@ -25,3 +25,8 @@ Then open http://127.0.0.1:8000
 ```bash
 pytest
 ```
+
+## Deploy to Render
+
+This repo includes a `render.yaml` blueprint. In the Render dashboard choose
+**New → Blueprint**, connect this GitHub repo, and click **Apply**.
