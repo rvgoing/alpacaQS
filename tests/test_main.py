@@ -27,3 +27,10 @@ def test_items_crud():
 
     assert client.delete(f"/api/items/{item_id}").status_code == 204
     assert client.get(f"/api/items/{item_id}").status_code == 404
+
+
+def test_db_check_without_database_url(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    r = client.get("/db-check")
+    assert r.status_code == 503
+    assert r.json()["detail"] == "DATABASE_URL not set"

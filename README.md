@@ -30,3 +30,14 @@ pytest
 
 This repo includes a `render.yaml` blueprint. In the Render dashboard choose
 **New → Blueprint**, connect this GitHub repo, and click **Apply**.
+
+## PostgreSQL
+
+Set `DATABASE_URL` to a PostgreSQL connection string (never commit it):
+
+```bash
+export DATABASE_URL='postgresql://user:pass@host:5432/dbname'
+```
+
+On Render, add `DATABASE_URL` under the web service's **Environment** tab
+(use the database's Internal URL). Visit `/db-check` to verify the connection.

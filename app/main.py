@@ -1,6 +1,8 @@
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+import psycopg
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -37,6 +39,19 @@ def index(request: Request):
 @app.get("/health")
 def health():
     return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
+
+
+@app.get("/db-check")
+def db_check():
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise HTTPException(status_code=503, detail="DATABASE_URL not set")
+    try:
+        with psycopg.connect(url, connect_timeout=5) as conn:
+            version = conn.execute("select version()").fetchone()[0]
+    except psycopg.Error as exc:
+        raise HTTPException(status_code=503, detail=f"Database error: {exc}") from exc
+    return {"status": "ok", "version": version}
 
 
 @app.get("/api/items")
