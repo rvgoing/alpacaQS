@@ -41,3 +41,13 @@ export DATABASE_URL='postgresql://user:pass@host:5432/dbname'
 
 On Render, add `DATABASE_URL` under the web service's **Environment** tab
 (use the database's Internal URL). Visit `/db-check` to verify the connection.
+
+## Run with Docker (e.g. on TrueNAS)
+
+```bash
+cp .env.example .env   # then edit .env with your real DATABASE_URL
+docker compose up -d --build
+```
+
+Open http://<host-ip>:8000. Files under `app/` are mounted into the container,
+so edits reload automatically.
