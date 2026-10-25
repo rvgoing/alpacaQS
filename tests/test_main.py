@@ -45,3 +45,10 @@ def test_db_check_with_database():
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
     assert "PostgreSQL" in r.json()["version"]
+
+
+def test_index_uses_relative_static_url():
+    # Absolute http:// URLs break styling behind Render's HTTPS proxy
+    r = client.get("/")
+    assert 'href="/static/style.css"' in r.text
+    assert client.get("/static/style.css").status_code == 200
