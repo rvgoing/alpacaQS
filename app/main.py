@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import psycopg
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +11,10 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent
+
+# Load settings such as DATABASE_URL from .env for local development.
+# Real environment variables (Render, CI) take precedence.
+load_dotenv(BASE_DIR.parent / ".env")
 
 app = FastAPI(title="alpacaQS Test Site", version="0.1.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
