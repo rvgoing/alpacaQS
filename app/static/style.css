@@ -11,3 +11,6 @@ button { padding: .5rem 1rem; background: #4b3f72; color: #fff; border: 0; borde
 button:hover { background: #3a3059; }
 a { color: #4b3f72; }
 footer { text-align: center; padding: 1rem; color: #777; }
+.storage { color: #555; margin-top: 0; }
+button.delete { float: right; padding: .1rem .5rem; background: #b33; }
+button.delete:hover { background: #8a2222; }

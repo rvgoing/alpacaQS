@@ -14,9 +14,15 @@
   <main>
     <section>
       <h2>Items</h2>
+      <p class="storage">Storage: <strong>{{ storage }}</strong></p>
       <ul id="items">
-        {% for id, item in items.items() %}
-        <li><strong>{{ item.name }}</strong> — ${{ "%.2f"|format(item.price) }}<br><small>{{ item.description or "" }}</small></li>
+        {% for item in items %}
+        <li>
+          <button class="delete" data-id="{{ item.id }}" title="Delete">✕</button>
+          <strong>{{ item.name }}</strong> — ${{ "%.2f"|format(item.price) }}<br><small>{{ item.description or "" }}</small>
+        </li>
+        {% else %}
+        <li><small>No items yet.</small></li>
         {% endfor %}
       </ul>
     </section>
@@ -53,6 +59,13 @@
       });
       if (res.ok) location.reload();
       else alert("Failed to add item");
+    });
+    document.querySelectorAll("button.delete").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const res = await fetch(`/api/items/${btn.dataset.id}`, {method: "DELETE"});
+        if (res.ok) location.reload();
+        else alert("Failed to delete item");
+      });
     });
   </script>
 </body>

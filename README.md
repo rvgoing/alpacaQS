@@ -7,7 +7,8 @@ A simple test website built with [FastAPI](https://fastapi.tiangolo.com/).
 ## Features
 
 - HTML home page (Jinja2 template + static CSS) listing items, with a form to add new ones
-- JSON API: `GET/POST /api/items`, `GET/DELETE /api/items/{id}` (in-memory store)
+- JSON API: `GET/POST /api/items`, `GET/PUT/DELETE /api/items/{id}`
+- Items are stored in PostgreSQL when `DATABASE_URL` is set, otherwise in memory
 - Health check at `/health`
 - Auto-generated docs at `/docs` and `/redoc`
 
@@ -28,6 +29,14 @@ Then open http://127.0.0.1:8000
 pytest
 ```
 
+Tests never use `DATABASE_URL`, so they cannot touch the live database. By
+default they use in-memory storage. To also run them against PostgreSQL, point
+`TEST_DATABASE_URL` at a throwaway database (its `items` table is emptied):
+
+```bash
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/alpacaqs_test pytest
+```
+
 ## Deploy to Render
 
 This repo includes a `render.yaml` blueprint. In the Render dashboard choose
@@ -43,6 +52,9 @@ export DATABASE_URL='postgresql://user:pass@host:5432/dbname'
 
 On Render, add `DATABASE_URL` under the web service's **Environment** tab
 (use the database's Internal URL). Visit `/db-check` to verify the connection.
+
+On startup the app creates the `items` table if it does not exist and adds two
+sample items when the table is empty. `/health` shows which storage is in use.
 
 ## Run with Docker (e.g. on TrueNAS)
 

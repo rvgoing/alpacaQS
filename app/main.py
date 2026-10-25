@@ -1,14 +1,17 @@
+import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
 import psycopg
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+
+from app.store import Item, create_store
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -16,34 +19,47 @@ BASE_DIR = Path(__file__).resolve().parent
 # Real environment variables (Render, CI) take precedence.
 load_dotenv(BASE_DIR.parent / ".env")
 
-app = FastAPI(title="alpacaQS Test Site", version="0.1.0")
+logger = logging.getLogger("uvicorn.error")
+store = create_store(os.environ.get("DATABASE_URL"))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        store.init()
+        logger.info("Item storage: %s", store.name)
+    except psycopg.Error as exc:
+        # Keep the site up; item endpoints will report the database error
+        logger.error("Could not initialise database: %s", exc)
+    yield
+
+
+app = FastAPI(title="alpacaQS Test Site", version="0.2.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 
-class Item(BaseModel):
-    name: str
-    description: str | None = None
-    price: float
-
-
-# In-memory store for demo purposes
-items: dict[int, Item] = {
-    1: Item(name="Alpaca", description="A fluffy test item", price=9.99),
-    2: Item(name="Llama", description="Another test item", price=14.5),
-}
+@app.exception_handler(psycopg.Error)
+async def database_error(request: Request, exc: psycopg.Error):
+    return JSONResponse(status_code=503, content={"detail": f"Database error: {exc}"})
 
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     return templates.TemplateResponse(
-        request, "index.html", {"items": items, "year": datetime.now().year}
+        request,
+        "index.html",
+        {"items": store.list(), "storage": store.name, "year": datetime.now().year},
     )
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
+    return {
+        "status": "ok",
+        "storage": store.name,
+        "time": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @app.get("/db-check")
@@ -51,34 +67,38 @@ def db_check():
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise HTTPException(status_code=503, detail="DATABASE_URL not set")
-    try:
-        with psycopg.connect(url, connect_timeout=5) as conn:
-            version = conn.execute("select version()").fetchone()[0]
-    except psycopg.Error as exc:
-        raise HTTPException(status_code=503, detail=f"Database error: {exc}") from exc
+    with psycopg.connect(url, connect_timeout=5) as conn:
+        version = conn.execute("select version()").fetchone()[0]
     return {"status": "ok", "version": version}
 
 
 @app.get("/api/items")
 def list_items():
-    return [{"id": item_id, **item.model_dump()} for item_id, item in items.items()]
+    return store.list()
 
 
 @app.get("/api/items/{item_id}")
 def get_item(item_id: int):
-    if item_id not in items:
+    item = store.get(item_id)
+    if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
-    return {"id": item_id, **items[item_id].model_dump()}
+    return item
 
 
 @app.post("/api/items", status_code=201)
 def create_item(item: Item):
-    item_id = max(items, default=0) + 1
-    items[item_id] = item
-    return {"id": item_id, **item.model_dump()}
+    return store.create(item)
+
+
+@app.put("/api/items/{item_id}")
+def update_item(item_id: int, item: Item):
+    updated = store.update(item_id, item)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return updated
 
 
 @app.delete("/api/items/{item_id}", status_code=204)
 def delete_item(item_id: int):
-    if items.pop(item_id, None) is None:
+    if not store.delete(item_id):
         raise HTTPException(status_code=404, detail="Item not found")
