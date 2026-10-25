@@ -1,3 +1,6 @@
+import os
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -34,3 +37,11 @@ def test_db_check_without_database_url(monkeypatch):
     r = client.get("/db-check")
     assert r.status_code == 503
     assert r.json()["detail"] == "DATABASE_URL not set"
+
+
+@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+def test_db_check_with_database():
+    r = client.get("/db-check")
+    assert r.status_code == 200
+    assert r.json()["status"] == "ok"
+    assert "PostgreSQL" in r.json()["version"]

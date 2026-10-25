@@ -1,5 +1,7 @@
 # alpacaQS
 
+[![CI](https://github.com/rvgoing/alpacaqs/actions/workflows/ci.yml/badge.svg)](https://github.com/rvgoing/alpacaqs/actions/workflows/ci.yml)
+
 A simple test website built with [FastAPI](https://fastapi.tiangolo.com/).
 
 ## Features
