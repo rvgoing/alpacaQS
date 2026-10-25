@@ -1,7 +1,7 @@
 """Item storage: PostgreSQL when DATABASE_URL is set, otherwise in memory."""
 
-import psycopg
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 from pydantic import BaseModel
 
 
@@ -24,6 +24,9 @@ class MemoryStore:
         self.reset()
 
     def init(self):
+        pass
+
+    def close(self):
         pass
 
     def reset(self):
@@ -69,21 +72,36 @@ class PostgresStore:
     name = "postgresql"
 
     def __init__(self, url: str):
-        self.url = url
+        # Reuse open connections instead of connecting (TCP + TLS + login)
+        # on every request. Idle connections are recycled after 5 minutes.
+        # Autocommit saves the BEGIN/COMMIT round trips around single statements.
+        self.pool = ConnectionPool(
+            url,
+            min_size=1,
+            max_size=5,
+            max_idle=300,
+            timeout=10,
+            open=False,
+            kwargs={"connect_timeout": 5, "row_factory": dict_row, "autocommit": True},
+        )
 
     def _connect(self):
-        return psycopg.connect(self.url, connect_timeout=5, row_factory=dict_row)
+        return self.pool.connection()
 
     def init(self):
-        """Create the table, and add sample items if it is empty."""
-        with self._connect() as conn:
+        """Open the pool, create the table, and add sample items if it is empty."""
+        self.pool.open()
+        with self._connect() as conn, conn.transaction():
             conn.execute(SCHEMA)
             if conn.execute("SELECT count(*) AS n FROM items").fetchone()["n"] == 0:
                 self._seed(conn)
 
+    def close(self):
+        self.pool.close()
+
     def reset(self):
         """Empty the table and re-add sample items. Used by tests only."""
-        with self._connect() as conn:
+        with self._connect() as conn, conn.transaction():
             conn.execute(SCHEMA)
             conn.execute("TRUNCATE items RESTART IDENTITY")
             self._seed(conn)

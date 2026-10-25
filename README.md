@@ -56,6 +56,10 @@ On Render, add `DATABASE_URL` under the web service's **Environment** tab
 On startup the app creates the `items` table if it does not exist and adds two
 sample items when the table is empty. `/health` shows which storage is in use.
 
+Database connections come from a pool (`psycopg_pool`) and are reused across
+requests. `/db-check` reports `new_connection_ms` and `pooled_connection_ms` so
+you can compare the cost of a fresh connection with a pooled one.
+
 ## Run with Docker (e.g. on TrueNAS)
 
 ```bash

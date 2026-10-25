@@ -9,6 +9,13 @@ import pytest  # noqa: E402
 from app.main import store  # noqa: E402
 
 
+@pytest.fixture(scope="session", autouse=True)
+def open_store():
+    store.init()
+    yield
+    store.close()
+
+
 @pytest.fixture(autouse=True)
 def reset_store():
     store.reset()

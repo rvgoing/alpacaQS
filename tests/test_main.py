@@ -73,6 +73,8 @@ def test_db_check_with_database():
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
     assert "PostgreSQL" in r.json()["version"]
+    assert r.json()["new_connection_ms"] >= 0
+    assert r.json()["pooled_connection_ms"] >= 0
 
 
 @needs_db
@@ -82,7 +84,11 @@ def test_items_are_stored_in_postgresql():
 
     # A separate connection sees the row, so it was really written to the database
     fresh = PostgresStore(os.environ["TEST_DATABASE_URL"])
-    assert fresh.get(item_id)["name"] == "Guanaco"
+    fresh.init()
+    try:
+        assert fresh.get(item_id)["name"] == "Guanaco"
+    finally:
+        fresh.close()
 
 
 def test_index_uses_relative_static_url():

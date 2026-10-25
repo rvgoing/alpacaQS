@@ -3,6 +3,7 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from time import perf_counter
 
 import psycopg
 from dotenv import load_dotenv
@@ -11,7 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.store import Item, create_store
+from app.store import Item, PostgresStore, create_store
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -32,6 +33,7 @@ async def lifespan(app: FastAPI):
         # Keep the site up; item endpoints will report the database error
         logger.error("Could not initialise database: %s", exc)
     yield
+    store.close()
 
 
 app = FastAPI(title="alpacaQS Test Site", version="0.2.0", lifespan=lifespan)
@@ -67,9 +69,21 @@ def db_check():
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise HTTPException(status_code=503, detail="DATABASE_URL not set")
+    # Time a query on a brand-new connection, and on a pooled one for comparison
+    start = perf_counter()
     with psycopg.connect(url, connect_timeout=5) as conn:
         version = conn.execute("select version()").fetchone()[0]
-    return {"status": "ok", "version": version}
+    result = {
+        "status": "ok",
+        "version": version,
+        "new_connection_ms": round((perf_counter() - start) * 1000, 1),
+    }
+    if isinstance(store, PostgresStore):
+        start = perf_counter()
+        with store.pool.connection() as conn:
+            conn.execute("select version()")
+        result["pooled_connection_ms"] = round((perf_counter() - start) * 1000, 1)
+    return result
 
 
 @app.get("/api/items")
